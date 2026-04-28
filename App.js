@@ -1,401 +1,389 @@
-/* ── app.js ── */
-'use strict';
+import React, { useState, useEffect } from 'react';
+import { 
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, 
+  Modal, TextInput, SafeAreaView, StatusBar, Platform,
+  Dimensions
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ─────────────────────────────────────────────
-// State
-// ─────────────────────────────────────────────
-const state = {
-  reminders: JSON.parse(localStorage.getItem('reminders') || '[]'),
-  tasks: JSON.parse(localStorage.getItem('tasks') || '[]'),
-  events: JSON.parse(localStorage.getItem('events') || '[]'),
-  calYear: new Date().getFullYear(),
-  calMonth: new Date().getMonth(),
-  calSelected: new Date().toISOString().slice(0, 10),
-  activeTab: 'reminders',
-  reminderFilter: 'all',
-  selectedEventColor: '#3b82f6',
+const { width } = Dimensions.get('window');
+
+// ─── CONFIGURACIÓN Y COLORES ───
+const COLORS = {
+  blue600: '#2563eb',
+  blue500: '#3b82f6',
+  blue400: '#60a5fa',
+  blue300: '#93c5fd',
+  blue100: '#dbeafe',
+  blue50: '#eff6ff',
+  surface: '#ffffff',
+  textMain: '#1e293b',
+  textSub: '#64748b',
+  danger: '#ef4444',
+  warning: '#f59e0b',
+  success: '#10b981',
 };
 
-function save() {
-  localStorage.setItem('reminders', JSON.stringify(state.reminders));
-  localStorage.setItem('tasks', JSON.stringify(state.tasks));
-  localStorage.setItem('events', JSON.stringify(state.events));
+export default function App() {
+  const [activeTab, setActiveTab] = useState('reminders');
+  const [reminders, setReminders] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [events, setEvents] = useState([]);
+  
+  // Estado del Calendario
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [viewDate, setViewDate] = useState(new Date());
+
+  const [modalVisible, setModalVisible] = useState(null);
+  const [newR, setNewR] = useState({ title: '', desc: '', priority: 'low' });
+  const [newT, setNewT] = useState({ title: '', desc: '', status: 'pending' });
+  const [newE, setNewE] = useState({ title: '', start: '', end: '', color: COLORS.blue500 });
+
+  useEffect(() => { loadData(); }, []);
+
+  const loadData = async () => {
+    try {
+      const r = await AsyncStorage.getItem('reminders');
+      const t = await AsyncStorage.getItem('tasks');
+      const e = await AsyncStorage.getItem('events');
+      if (r) setReminders(JSON.parse(r));
+      if (t) setTasks(JSON.parse(t));
+      if (e) setEvents(JSON.parse(e));
+    } catch (err) { console.error(err); }
+  };
+
+  const saveData = async (key, data) => {
+    try { await AsyncStorage.setItem(key, JSON.stringify(data)); }
+    catch (err) { console.error(err); }
+  };
+
+  // ─── LÓGICA DE RECORDATORIOS ───
+  const addReminder = () => {
+    if (!newR.title.trim()) return;
+    const updated = [{ id: Date.now().toString(), ...newR, done: false }, ...reminders];
+    setReminders(updated);
+    saveData('reminders', updated);
+    setModalVisible(null);
+    setNewR({ title: '', desc: '', priority: 'low' });
+  };
+
+  const toggleReminder = (id) => {
+    const updated = reminders.map(r => r.id === id ? { ...r, done: !r.done } : r);
+    setReminders(updated); saveData('reminders', updated);
+  };
+
+  const deleteReminder = (id) => {
+    const updated = reminders.filter(r => r.id !== id);
+    setReminders(updated); saveData('reminders', updated);
+  };
+
+  // ─── LÓGICA DE TAREAS ───
+  const addTask = () => {
+    if (!newT.title.trim()) return;
+    const updated = [{ id: Date.now().toString(), ...newT }, ...tasks];
+    setTasks(updated); saveData('tasks', updated);
+    setModalVisible(null);
+    setNewT({ title: '', desc: '', status: 'pending' });
+  };
+
+  const moveTask = (id, newStatus) => {
+    const updated = tasks.map(t => t.id === id ? { ...t, status: newStatus } : t);
+    setTasks(updated); saveData('tasks', updated);
+  };
+
+  const deleteTask = (id) => {
+    const updated = tasks.filter(t => t.id !== id);
+    setTasks(updated); saveData('tasks', updated);
+  };
+
+  // ─── LÓGICA DE AGENDA ───
+  const changeMonth = (offset) => {
+    const next = new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1);
+    setViewDate(next);
+  };
+
+  const addEvent = () => {
+    if (!newE.title.trim()) return;
+    const updated = [{ id: Date.now().toString(), ...newE, date: selectedDate }, ...events];
+    setEvents(updated); saveData('events', updated);
+    setModalVisible(null);
+    setNewE({ title: '', start: '', end: '', color: COLORS.blue500 });
+  };
+
+  const deleteEvent = (id) => {
+    const updated = events.filter(e => e.id !== id);
+    setEvents(updated); saveData('events', updated);
+  };
+
+  const renderCalendarDays = () => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDay = (new Date(year, month, 1).getDay() + 6) % 7; 
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date().toISOString().split('T')[0];
+
+    const days = [];
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<View key={`empty-${i}`} style={styles.calDay} />);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const isSelected = selectedDate === dateStr;
+      const isToday = today === dateStr;
+      const hasEvent = events.some(e => e.date === dateStr);
+
+      days.push(
+        <TouchableOpacity 
+          key={dateStr} 
+          style={[styles.calDay, isSelected && styles.calDayActive, isToday && !isSelected && styles.calDayToday]} 
+          onPress={() => setSelectedDate(dateStr)}
+        >
+          <Text style={[styles.calDayText, isSelected && {color:'#fff'}, isToday && !isSelected && {color:COLORS.blue600}]}>{d}</Text>
+          {hasEvent && <View style={[styles.calDot, isSelected && {backgroundColor:'#fff'}]} />}
+        </TouchableOpacity>
+      );
+    }
+    return days;
+  };
+
+  // ─── VISTAS ───
+  const Header = () => (
+    <View style={styles.header}>
+      <View style={styles.headerTop}>
+        <Text style={styles.headerDate}>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+        <View style={styles.avatar}><Text style={styles.avatarText}>AR</Text></View>
+      </View>
+      <Text style={styles.headerTitle}>Mi Agenda</Text>
+      <View style={styles.tabNav}>
+        {['reminders', 'planning', 'agenda'].map((tab) => (
+          <TouchableOpacity key={tab} style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]} onPress={() => setActiveTab(tab)}>
+            <Text style={[styles.tabBtnText, activeTab === tab && styles.tabBtnTextActive]}>{tab === 'reminders' ? '🔔' : tab === 'planning' ? '📋' : '📅'}</Text>
+            <Text style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}>{tab === 'reminders' ? 'Recordatorios' : tab === 'planning' ? 'Planificación' : 'Agenda'}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  const RemindersView = () => (
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.content}>
+        <Text style={styles.sectionTitle}>Recordatorios ({reminders.filter(r => !r.done).length})</Text>
+        {reminders.map(r => (
+          <View key={r.id} style={[styles.card, r.done && { opacity: 0.5 }, { borderLeftColor: r.priority === 'high' ? COLORS.danger : r.priority === 'med' ? COLORS.warning : COLORS.success }]}>
+            <TouchableOpacity style={[styles.check, r.done && styles.checkActive]} onPress={() => toggleReminder(r.id)}>
+              {r.done && <Text style={{ color: '#fff', fontSize: 10 }}>✓</Text>}
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.cardTitle, r.done && { textDecorationLine: 'line-through' }]}>{r.title}</Text>
+              {r.desc ? <Text style={styles.cardDesc}>{r.desc}</Text> : null}
+            </View>
+            <TouchableOpacity onPress={() => deleteReminder(r.id)}><Text>🗑</Text></TouchableOpacity>
+          </View>
+        ))}
+      </ScrollView>
+      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible('reminder')}>
+        <Text style={styles.fabIcon}>+</Text><Text style={styles.fabLabel}>Añadir nuevo recordatorio</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const PlanningView = () => {
+    const columns = [
+      { id: 'pending', title: 'Pendiente', color: COLORS.warning, icon: '⏳' },
+      { id: 'progress', title: 'En progreso', color: COLORS.blue500, icon: '🔄' },
+      { id: 'done', title: 'Hecho', color: COLORS.success, icon: '✅' },
+    ];
+    return (
+      <View style={{ flex: 1 }}>
+        <ScrollView style={styles.content}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Planificación</Text>
+            <TouchableOpacity style={styles.addBtnSmall} onPress={() => setModalVisible('task')}><Text style={{color:'#fff'}}>+</Text></TouchableOpacity>
+          </View>
+          {columns.map(col => (
+            <View key={col.id} style={styles.kanbanCol}>
+              <View style={[styles.kanbanHeader, { backgroundColor: col.color }]}>
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>{col.icon} {col.title}</Text>
+                <Text style={{ color: '#fff', fontSize: 12 }}>{tasks.filter(t => t.status === col.id).length}</Text>
+              </View>
+              {tasks.filter(t => t.status === col.id).map(t => (
+                <View key={t.id} style={styles.taskCard}>
+                  <View style={{flex:1}}>
+                    <Text style={styles.taskTitle}>{t.title}</Text>
+                    {t.desc ? <Text style={styles.taskDesc}>{t.desc}</Text> : null}
+                  </View>
+                  <View style={styles.taskActions}>
+                    {col.id !== 'done' && <TouchableOpacity onPress={() => moveTask(t.id, col.id === 'pending' ? 'progress' : 'done')}><Text>▶</Text></TouchableOpacity>}
+                    <TouchableOpacity onPress={() => deleteTask(t.id)}><Text>🗑</Text></TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const AgendaView = () => {
+    const dayEvents = events.filter(e => e.date === selectedDate);
+    return (
+      <View style={{ flex: 1 }}>
+        <ScrollView style={styles.content}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Agenda</Text>
+            <TouchableOpacity style={styles.addBtnSmall} onPress={() => setModalVisible('event')}><Text style={{color:'#fff'}}>+</Text></TouchableOpacity>
+          </View>
+
+          <View style={styles.fullCal}>
+            <View style={styles.calHeader}>
+              <TouchableOpacity onPress={() => changeMonth(-1)}><Text style={styles.calNavBtn}>‹</Text></TouchableOpacity>
+              <Text style={styles.calMonthLabel}>{viewDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</Text>
+              <TouchableOpacity onPress={() => changeMonth(1)}><Text style={styles.calNavBtn}>›</Text></TouchableOpacity>
+            </View>
+            <View style={styles.calWeekDays}>
+              {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => <Text key={d} style={styles.calWeekText}>{d}</Text>)}
+            </View>
+            <View style={styles.calGrid}>{renderCalendarDays()}</View>
+          </View>
+
+          <Text style={styles.timelineLabel}>{new Date(selectedDate).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+          {dayEvents.map(e => (
+            <View key={e.id} style={styles.eventCard}>
+              <View style={[styles.eventBar, { backgroundColor: e.color }]} />
+              <View style={{flex:1}}>
+                <Text style={styles.eventTitle}>{e.title}</Text>
+                <Text style={styles.eventTime}>{e.start} - {e.end}</Text>
+              </View>
+              <TouchableOpacity onPress={() => deleteEvent(e.id)}><Text>🗑</Text></TouchableOpacity>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <Header />
+      {activeTab === 'reminders' && <RemindersView />}
+      {activeTab === 'planning' && <PlanningView />}
+      {activeTab === 'agenda' && <AgendaView />}
+
+      {/* MODAL RECORDATORIO */}
+      <Modal visible={modalVisible === 'reminder'} animationType="slide" transparent>
+        <View style={styles.modalOverlay}><View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Nuevo Recordatorio</Text>
+          <TextInput style={styles.input} placeholder="¿Qué quieres recordar?" value={newR.title} onChangeText={t => setNewR({...newR, title:t})} />
+          <Text style={styles.label}>Prioridad</Text>
+          <View style={styles.prioGroup}>
+            {['low','med','high'].map(p => (
+              <TouchableOpacity key={p} style={[styles.prioBtn, newR.priority === p && {backgroundColor: p==='high'?COLORS.danger:p==='med'?COLORS.warning:COLORS.success}]} onPress={()=>setNewR({...newR, priority:p})}>
+                <Text style={{color: newR.priority === p ? '#fff' : COLORS.textSub}}>{p === 'low' ? 'Baja' : p === 'med' ? 'Media' : 'Alta'}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.btnSec} onPress={() => setModalVisible(null)}><Text>Cerrar</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.btnPri} onPress={addReminder}><Text style={{color:'#fff', fontWeight:'bold'}}>Guardar</Text></TouchableOpacity>
+          </View>
+        </View></View>
+      </Modal>
+
+      {/* MODAL TAREA */}
+      <Modal visible={modalVisible === 'task'} animationType="slide" transparent>
+        <View style={styles.modalOverlay}><View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Nueva Tarea</Text>
+          <TextInput style={styles.input} placeholder="Título de la tarea" value={newT.title} onChangeText={t => setNewT({...newT, title:t})} />
+          <TextInput style={[styles.input, {height:80}]} placeholder="Descripción" multiline value={newT.desc} onChangeText={t => setNewT({...newT, desc:t})} />
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.btnSec} onPress={() => setModalVisible(null)}><Text>Cerrar</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.btnPri} onPress={addTask}><Text style={{color:'#fff', fontWeight:'bold'}}>Crear Tarea</Text></TouchableOpacity>
+          </View>
+        </View></View>
+      </Modal>
+
+      {/* MODAL EVENTO */}
+      <Modal visible={modalVisible === 'event'} animationType="slide" transparent>
+        <View style={styles.modalOverlay}><View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Nuevo Evento</Text>
+          <TextInput style={styles.input} placeholder="Título del evento" value={newE.title} onChangeText={t => setNewE({...newE, title:t})} />
+          <View style={{flexDirection:'row', gap:10}}>
+            <TextInput style={[styles.input, {flex:1}]} placeholder="Inicio" value={newE.start} onChangeText={t => setNewE({...newE, start:t})} />
+            <TextInput style={[styles.input, {flex:1}]} placeholder="Fin" value={newE.end} onChangeText={t => setNewE({...newE, end:t})} />
+          </View>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.btnSec} onPress={() => setModalVisible(null)}><Text>Cerrar</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.btnPri} onPress={addEvent}><Text style={{color:'#fff', fontWeight:'bold'}}>Guardar Evento</Text></TouchableOpacity>
+          </View>
+        </View></View>
+      </Modal>
+    </SafeAreaView>
+  );
 }
 
-// ─────────────────────────────────────────────
-// Utils
-// ─────────────────────────────────────────────
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
-
-function formatDateTime(dtStr) {
-  if (!dtStr) return '';
-  const d = new Date(dtStr);
-  return d.toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-
-function formatTime(t) {
-  if (!t) return '';
-  const [h, m] = t.split(':');
-  return `${h}:${m}`;
-}
-
-// ─────────────────────────────────────────────
-// Header date
-// ─────────────────────────────────────────────
-function renderHeaderDate() {
-  const el = document.getElementById('header-date');
-  el.textContent = new Date().toLocaleDateString('es-ES', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-  });
-}
-
-// ─────────────────────────────────────────────
-// Tabs
-// ─────────────────────────────────────────────
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const tab = btn.dataset.tab;
-    state.activeTab = tab;
-
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
-
-    btn.classList.add('active');
-    document.getElementById(`section-${tab}`).classList.add('active');
-
-    // Show/hide FAB
-    document.getElementById('fab-reminder').classList.toggle('hidden', tab !== 'reminders');
-  });
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.blue50 },
+  header: { backgroundColor: COLORS.blue600, paddingTop: 40, paddingHorizontal: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 10 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerDate: { color: COLORS.blue100, fontSize: 12, textTransform: 'capitalize' },
+  avatar: { width: 35, height: 35, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' },
+  avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
+  headerTitle: { color: '#fff', fontSize: 28, fontWeight: 'bold', marginVertical: 15 },
+  tabNav: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 15, padding: 5, marginBottom: -10 },
+  tabBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
+  tabBtnActive: { backgroundColor: '#fff' },
+  tabBtnText: { fontSize: 18 },
+  tabBtnTextActive: { color: COLORS.blue600 },
+  tabLabel: { fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  tabLabelActive: { color: COLORS.blue600, fontWeight: 'bold' },
+  content: { flex: 1, padding: 20 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.textMain },
+  addBtnSmall: { backgroundColor: COLORS.blue600, width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  card: { backgroundColor: '#fff', padding: 15, borderRadius: 15, marginBottom: 12, flexDirection: 'row', alignItems: 'center', borderLeftWidth: 5, elevation: 2 },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: COLORS.textMain },
+  cardDesc: { fontSize: 13, color: COLORS.textSub, marginTop: 2 },
+  check: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: COLORS.blue300, marginRight: 15, alignItems: 'center', justifyContent: 'center' },
+  checkActive: { backgroundColor: COLORS.blue500, borderColor: COLORS.blue500 },
+  kanbanCol: { marginBottom: 20, borderRadius: 15, overflow: 'hidden', backgroundColor: '#fff', elevation: 2 },
+  kanbanHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 10 },
+  taskCard: { padding: 12, borderBottomWidth: 1, borderBottomColor: COLORS.blue50, flexDirection: 'row', alignItems: 'center' },
+  taskTitle: { fontSize: 14, fontWeight: '600' },
+  taskDesc: { fontSize: 12, color: COLORS.textSub },
+  taskActions: { flexDirection: 'row', gap: 10 },
+  fullCal: { backgroundColor: '#fff', borderRadius: 20, padding: 15, marginBottom: 20, elevation: 3 },
+  calHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  calMonthLabel: { fontSize: 16, fontWeight: 'bold', textTransform: 'capitalize' },
+  calNavBtn: { fontSize: 24, color: COLORS.blue600, paddingHorizontal: 10 },
+  calWeekDays: { flexDirection: 'row', marginBottom: 10 },
+  calWeekText: { flex: 1, textAlign: 'center', fontSize: 12, color: COLORS.textSub, fontWeight: 'bold' },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calDay: { width: (width - 70) / 7, height: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 5, borderRadius: 10 },
+  calDayActive: { backgroundColor: COLORS.blue600 },
+  calDayToday: { backgroundColor: COLORS.blue50, borderWidth: 1, borderColor: COLORS.blue200 },
+  calDayText: { fontSize: 14, fontWeight: '500' },
+  calDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.blue400, marginTop: 2 },
+  timelineLabel: { fontSize: 14, fontWeight: 'bold', color: COLORS.textSub, marginBottom: 10, textTransform: 'capitalize' },
+  eventCard: { backgroundColor: '#fff', padding: 15, borderRadius: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2 },
+  eventBar: { width: 4, height: 40, borderRadius: 2, marginRight: 15 },
+  eventTitle: { fontWeight: 'bold' },
+  eventTime: { fontSize: 12, color: COLORS.textSub },
+  fab: { position: 'absolute', bottom: 30, alignSelf: 'center', backgroundColor: COLORS.blue600, flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 25, borderRadius: 30, elevation: 8 },
+  fabIcon: { color: '#fff', fontSize: 24, marginRight: 10 },
+  fabLabel: { color: '#fff', fontWeight: 'bold' },
+  emptyState: { alignItems: 'center', marginTop: 20, opacity: 0.5 },
+  emptyText: { fontSize: 14, color: COLORS.textSub },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', padding: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
+  label: { fontSize: 12, fontWeight: 'bold', color: COLORS.textSub, marginBottom: 10 },
+  input: { backgroundColor: COLORS.blue50, padding: 15, borderRadius: 10, marginBottom: 15, borderWidth: 1, borderColor: COLORS.blue100 },
+  prioGroup: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  prioBtn: { flex: 1, padding: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.blue100 },
+  modalButtons: { flexDirection: 'row', gap: 10 },
+  btnPri: { flex: 1, backgroundColor: COLORS.blue600, padding: 15, borderRadius: 10, alignItems: 'center' },
+  btnSec: { flex: 1, backgroundColor: COLORS.blue50, padding: 15, borderRadius: 10, alignItems: 'center' },
 });
-
-// ─────────────────────────────────────────────
-// REMINDERS
-// ─────────────────────────────────────────────
-function renderReminders() {
-  const list = document.getElementById('reminder-list');
-  const empty = document.getElementById('reminders-empty');
-  const count = document.getElementById('reminders-count');
-  const filter = state.reminderFilter;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
-
-  let items = [...state.reminders];
-  if (filter === 'today') items = items.filter(r => r.datetime && r.datetime.slice(0, 10) === today);
-  if (filter === 'week') items = items.filter(r => r.datetime && r.datetime.slice(0, 10) <= weekEnd);
-  if (filter === 'done') items = items.filter(r => r.done);
-  if (filter !== 'done') items = items.sort((a, b) => Number(a.done) - Number(b.done));
-
-  count.textContent = state.reminders.filter(r => !r.done).length;
-  list.innerHTML = '';
-
-  if (items.length === 0) { empty.classList.remove('hidden'); return; }
-  empty.classList.add('hidden');
-
-  items.forEach(r => {
-    const li = document.createElement('li');
-    li.innerHTML = `
-      <div class="reminder-card prio-${r.priority} ${r.done ? 'done-card' : ''}">
-        <button class="r-check ${r.done ? 'checked' : ''}" data-id="${r.id}" title="Completar">
-          ${r.done ? '✓' : ''}
-        </button>
-        <div class="r-body">
-          <div class="r-title" style="${r.done ? 'text-decoration:line-through;color:var(--text-sub)' : ''}">${r.title}</div>
-          ${r.desc ? `<div class="r-desc">${r.desc}</div>` : ''}
-          <div class="r-meta">
-            ${r.datetime ? `<span class="r-time">📅 ${formatDateTime(r.datetime)}</span>` : ''}
-            <span class="r-prio-tag ${r.priority}">${r.priority === 'high' ? 'Alta' : r.priority === 'med' ? 'Media' : 'Baja'}</span>
-          </div>
-        </div>
-        <button class="r-delete" data-id="${r.id}" title="Eliminar">🗑</button>
-      </div>`;
-    list.appendChild(li);
-  });
-
-  list.querySelectorAll('.r-check').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const r = state.reminders.find(x => x.id === btn.dataset.id);
-      if (r) { r.done = !r.done; save(); renderReminders(); }
-    });
-  });
-  list.querySelectorAll('.r-delete').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.reminders = state.reminders.filter(x => x.id !== btn.dataset.id);
-      save(); renderReminders();
-    });
-  });
-}
-
-// Filter chips
-document.querySelectorAll('#section-reminders .chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    document.querySelectorAll('#section-reminders .chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    state.reminderFilter = chip.dataset.filter;
-    renderReminders();
-  });
-});
-
-// FAB → open modal
-document.getElementById('fab-reminder').addEventListener('click', () => openModal('modal-reminder'));
-
-// Save reminder
-document.getElementById('save-reminder').addEventListener('click', () => {
-  const title = document.getElementById('r-title').value.trim();
-  if (!title) { document.getElementById('r-title').focus(); return; }
-  state.reminders.unshift({
-    id: uid(),
-    title,
-    desc: document.getElementById('r-desc').value.trim(),
-    datetime: document.getElementById('r-datetime').value,
-    priority: document.querySelector('input[name="r-priority"]:checked').value,
-    done: false,
-  });
-  save(); renderReminders();
-  closeModal('modal-reminder');
-});
-
-// ─────────────────────────────────────────────
-// PLANNING
-// ─────────────────────────────────────────────
-function renderPlanning() {
-  const pendingList = document.getElementById('pending-list');
-  const progressList = document.getElementById('progress-list');
-  const doneList = document.getElementById('done-list');
-  const empty = document.getElementById('planning-empty');
-
-  pendingList.innerHTML = progressList.innerHTML = doneList.innerHTML = '';
-
-  const pending = state.tasks.filter(t => t.status === 'pending');
-  const progress = state.tasks.filter(t => t.status === 'progress');
-  const done = state.tasks.filter(t => t.status === 'done');
-
-  document.getElementById('pending-count').textContent = pending.length;
-  document.getElementById('progress-count').textContent = progress.length;
-  document.getElementById('done-count').textContent = done.length;
-
-  empty.classList.toggle('hidden', state.tasks.length > 0);
-
-  function renderTaskCard(t, listEl) {
-    const li = document.createElement('li');
-    li.innerHTML = `
-      <div class="task-card">
-        <div class="task-body">
-          <div class="task-title">${t.title}</div>
-          ${t.desc ? `<div class="task-desc">${t.desc}</div>` : ''}
-        </div>
-        <div class="task-actions">
-          ${t.status !== 'done' ? `<button class="task-action-btn" data-id="${t.id}" data-action="advance" title="Avanzar">▶</button>` : ''}
-          ${t.status !== 'pending' ? `<button class="task-action-btn" data-id="${t.id}" data-action="back" title="Retroceder">◀</button>` : ''}
-          <button class="task-action-btn" data-id="${t.id}" data-action="delete" title="Eliminar">🗑</button>
-        </div>
-      </div>`;
-    listEl.appendChild(li);
-
-    li.querySelectorAll('.task-action-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const task = state.tasks.find(x => x.id === btn.dataset.id);
-        if (!task) return;
-        const act = btn.dataset.action;
-        if (act === 'advance') task.status = task.status === 'pending' ? 'progress' : 'done';
-        if (act === 'back') task.status = task.status === 'done' ? 'progress' : 'pending';
-        if (act === 'delete') state.tasks = state.tasks.filter(x => x.id !== btn.dataset.id);
-        save(); renderPlanning();
-      });
-    });
-  }
-
-  pending.forEach(t => renderTaskCard(t, pendingList));
-  progress.forEach(t => renderTaskCard(t, progressList));
-  done.forEach(t => renderTaskCard(t, doneList));
-}
-
-document.getElementById('add-task-btn').addEventListener('click', () => openModal('modal-task'));
-
-document.getElementById('save-task').addEventListener('click', () => {
-  const title = document.getElementById('t-title').value.trim();
-  if (!title) { document.getElementById('t-title').focus(); return; }
-  state.tasks.push({
-    id: uid(),
-    title,
-    desc: document.getElementById('t-desc').value.trim(),
-    status: document.getElementById('t-status').value,
-  });
-  save(); renderPlanning();
-  closeModal('modal-task');
-});
-
-// ─────────────────────────────────────────────
-// MINI CALENDAR
-// ─────────────────────────────────────────────
-function renderCalendar() {
-  const cal = document.getElementById('mini-calendar');
-  const year = state.calYear, month = state.calMonth;
-  const today = new Date().toISOString().slice(0, 10);
-
-  const eventDays = new Set(state.events.map(e => e.date));
-
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const prevDays = new Date(year, month, 0).getDate();
-  const startOffset = (firstDay + 6) % 7; // Monday start
-
-  const monthName = new Date(year, month).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-
-  let html = `
-    <div class="cal-nav">
-      <button class="cal-nav-btn" id="cal-prev">‹</button>
-      <span class="cal-month">${monthName}</span>
-      <button class="cal-nav-btn" id="cal-next">›</button>
-    </div>
-    <div class="cal-grid">
-      ${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => `<div class="cal-day-name">${d}</div>`).join('')}
-  `;
-
-  for (let i = startOffset - 1; i >= 0; i--) {
-    const d = prevDays - i;
-    html += `<div class="cal-day other-month">${d}</div>`;
-  }
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const isToday = dateStr === today;
-    const isSelected = dateStr === state.calSelected;
-    const hasEvent = eventDays.has(dateStr);
-    html += `<div class="cal-day${isToday ? ' today' : ''}${isSelected && !isToday ? ' selected' : ''}${hasEvent ? ' has-event' : ''}" data-date="${dateStr}">${d}</div>`;
-  }
-
-  const remaining = 42 - (startOffset + daysInMonth);
-  for (let d = 1; d <= remaining && remaining < 7; d++) {
-    html += `<div class="cal-day other-month">${d}</div>`;
-  }
-
-  html += '</div>';
-  cal.innerHTML = html;
-
-  cal.querySelector('#cal-prev').addEventListener('click', () => {
-    if (--state.calMonth < 0) { state.calMonth = 11; state.calYear--; }
-    renderCalendar();
-  });
-  cal.querySelector('#cal-next').addEventListener('click', () => {
-    if (++state.calMonth > 11) { state.calMonth = 0; state.calYear++; }
-    renderCalendar();
-  });
-  cal.querySelectorAll('.cal-day[data-date]').forEach(el => {
-    el.addEventListener('click', () => {
-      state.calSelected = el.dataset.date;
-      renderCalendar();
-      renderAgendaTimeline();
-    });
-  });
-}
-
-// ─────────────────────────────────────────────
-// AGENDA TIMELINE
-// ─────────────────────────────────────────────
-function renderAgendaTimeline() {
-  const timeline = document.getElementById('agenda-timeline');
-  const empty = document.getElementById('agenda-empty');
-
-  const dayEvents = state.events
-    .filter(e => e.date === state.calSelected)
-    .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
-
-  timeline.innerHTML = '';
-
-  const label = document.createElement('div');
-  label.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-sub);padding:4px 0 8px;text-transform:capitalize';
-  label.textContent = new Date(state.calSelected + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-  timeline.appendChild(label);
-
-  if (dayEvents.length === 0) {
-    const em = empty.cloneNode(true);
-    em.removeAttribute('id');
-    em.classList.remove('hidden');
-    timeline.appendChild(em);
-    return;
-  }
-
-  dayEvents.forEach(ev => {
-    const card = document.createElement('div');
-    card.className = 'event-card';
-    card.innerHTML = `
-      <div class="event-color-bar" style="background:${ev.color}"></div>
-      <div class="event-body">
-        <div class="event-title">${ev.title}</div>
-        <div class="event-time">${ev.start ? formatTime(ev.start) : ''}${ev.end ? ' – ' + formatTime(ev.end) : ''}</div>
-      </div>
-      <button class="event-delete" data-id="${ev.id}" title="Eliminar">🗑</button>`;
-    timeline.appendChild(card);
-
-    card.querySelector('.event-delete').addEventListener('click', () => {
-      state.events = state.events.filter(x => x.id !== ev.id);
-      save(); renderCalendar(); renderAgendaTimeline();
-    });
-  });
-}
-
-// Event modal
-document.getElementById('add-event-btn').addEventListener('click', () => {
-  document.getElementById('e-date').value = state.calSelected;
-  openModal('modal-event');
-});
-
-document.querySelectorAll('.color-dot').forEach(dot => {
-  dot.addEventListener('click', () => {
-    document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
-    dot.classList.add('active');
-    state.selectedEventColor = dot.dataset.color;
-  });
-});
-
-document.getElementById('save-event').addEventListener('click', () => {
-  const title = document.getElementById('e-title').value.trim();
-  if (!title) { document.getElementById('e-title').focus(); return; }
-  const date = document.getElementById('e-date').value || state.calSelected;
-  state.events.push({
-    id: uid(),
-    title,
-    date,
-    start: document.getElementById('e-start').value,
-    end: document.getElementById('e-end').value,
-    color: state.selectedEventColor,
-  });
-  save(); renderCalendar(); renderAgendaTimeline();
-  closeModal('modal-event');
-});
-
-// ─────────────────────────────────────────────
-// Modals
-// ─────────────────────────────────────────────
-function openModal(id) {
-  resetModal(id);
-  document.getElementById(id).classList.add('open');
-}
-function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
-}
-function resetModal(id) {
-  document.querySelectorAll(`#${id} input, #${id} textarea`).forEach(el => el.value = '');
-  document.querySelectorAll(`#${id} select`).forEach(el => el.selectedIndex = 0);
-  const radioLow = document.querySelector('input[name="r-priority"][value="low"]');
-  if (radioLow) radioLow.checked = true;
-}
-
-document.querySelectorAll('[data-close]').forEach(btn => {
-  btn.addEventListener('click', () => closeModal(btn.dataset.close));
-});
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) closeModal(overlay.id);
-  });
-});
-
-// ─────────────────────────────────────────────
-// Init
-// ─────────────────────────────────────────────
-renderHeaderDate();
-renderReminders();
-renderPlanning();
-renderCalendar();
-renderAgendaTimeline();

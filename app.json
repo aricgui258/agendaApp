@@ -1,10 +1,17 @@
 {
-  "android": {
-    "package": "com.anonymous.appantigravity"
-  },
-  "extra": {
-    "eas": {
-      "projectId": "221289d7-7055-4932-b0ae-b4c4eba9c01f"
+  "expo": {
+    "name": "appantigravity",
+    "slug": "appantigravity",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.anonymous.appantigravity"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "221289d7-7055-4932-b0ae-b4c4eba9c01f"
+      }
     }
   }
 }
