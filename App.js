@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   eventBar: { width: 4, height: 40, borderRadius: 2, marginRight: 15 },
   eventTitle: { fontWeight: 'bold' },
   eventTime: { fontSize: 12, color: COLORS.textSub },
-  fab: { position: 'absolute', bottom: 30, alignSelf: 'center', backgroundColor: COLORS.blue600, flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 25, borderRadius: 30, elevation: 8 },
+  fab: { position: 'absolute', bottom: 60, alignSelf: 'center', backgroundColor: COLORS.blue600, flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 25, borderRadius: 30, elevation: 8 },
   fabIcon: { color: '#fff', fontSize: 24, marginRight: 10 },
   fabLabel: { color: '#fff', fontWeight: 'bold' },
   emptyState: { alignItems: 'center', marginTop: 20, opacity: 0.5 },
