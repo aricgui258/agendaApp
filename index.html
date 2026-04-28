@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Mi Agenda</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="header-date" id="header-date"></div>
+        <div class="header-avatar">AR</div>
+      </div>
+      <h1 class="header-title">Mi Agenda</h1>
+
+      <!-- Tab Navigation -->
+      <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="reminders" id="tab-reminders">
+          <span class="tab-icon">🔔</span>
+          <span>Recordatorios</span>
+        </button>
+        <button class="tab-btn" data-tab="planning" id="tab-planning">
+          <span class="tab-icon">📋</span>
+          <span>Planificación</span>
+        </button>
+        <button class="tab-btn" data-tab="agenda" id="tab-agenda">
+          <span class="tab-icon">📅</span>
+          <span>Agenda</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main">
+
+      <!-- ── RECORDATORIOS ── -->
+      <section class="tab-content active" id="section-reminders">
+        <div class="section-header">
+          <h2>Recordatorios</h2>
+          <span class="badge" id="reminders-count">0</span>
+        </div>
+
+        <div class="filter-chips">
+          <button class="chip active" data-filter="all">Todos</button>
+          <button class="chip" data-filter="today">Hoy</button>
+          <button class="chip" data-filter="week">Esta semana</button>
+          <button class="chip" data-filter="done">Completados</button>
+        </div>
+
+        <div class="empty-state" id="reminders-empty">
+          <div class="empty-icon">🔔</div>
+          <p>No tienes recordatorios</p>
+          <span>Pulsa el botón + para añadir uno</span>
+        </div>
+
+        <ul class="reminder-list" id="reminder-list"></ul>
+
+        <!-- FAB -->
+        <button class="fab" id="fab-reminder">
+          <span class="fab-icon">＋</span>
+          <span class="fab-label">Añadir nuevo recordatorio</span>
+        </button>
+      </section>
+
+      <!-- ── PLANIFICACIÓN ── -->
+      <section class="tab-content" id="section-planning">
+        <div class="section-header">
+          <h2>Planificación</h2>
+          <button class="icon-btn" id="add-task-btn" title="Nueva tarea">＋</button>
+        </div>
+
+        <div class="planning-grid">
+          <div class="plan-column">
+            <div class="plan-col-header pending">
+              <span>⏳</span> Pendiente
+              <span class="col-count" id="pending-count">0</span>
+            </div>
+            <ul class="task-list" id="pending-list"></ul>
+          </div>
+          <div class="plan-column">
+            <div class="plan-col-header progress">
+              <span>🔄</span> En progreso
+              <span class="col-count" id="progress-count">0</span>
+            </div>
+            <ul class="task-list" id="progress-list"></ul>
+          </div>
+          <div class="plan-column">
+            <div class="plan-col-header done">
+              <span>✅</span> Listo
+              <span class="col-count" id="done-count">0</span>
+            </div>
+            <ul class="task-list" id="done-list"></ul>
+          </div>
+        </div>
+
+        <div class="empty-state" id="planning-empty">
+          <div class="empty-icon">📋</div>
+          <p>Sin tareas planificadas</p>
+          <span>Usa el botón + para crear una tarea</span>
+        </div>
+      </section>
+
+      <!-- ── AGENDA ── -->
+      <section class="tab-content" id="section-agenda">
+        <div class="section-header">
+          <h2>Agenda</h2>
+          <button class="icon-btn" id="add-event-btn" title="Nuevo evento">＋</button>
+        </div>
+
+        <div class="mini-calendar" id="mini-calendar"></div>
+
+        <div class="agenda-timeline" id="agenda-timeline">
+          <div class="empty-state" id="agenda-empty">
+            <div class="empty-icon">📅</div>
+            <p>No hay eventos hoy</p>
+            <span>Pulsa + para añadir un evento</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ── MODAL: Nuevo Recordatorio ── -->
+  <div class="modal-overlay" id="modal-reminder">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Nuevo Recordatorio</h3>
+        <button class="close-btn" data-close="modal-reminder">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>Título *</label>
+        <input type="text" id="r-title" placeholder="Ej. Llamar al médico" maxlength="60" />
+        <label>Descripción</label>
+        <textarea id="r-desc" placeholder="Notas adicionales..." rows="3"></textarea>
+        <label>Fecha y hora</label>
+        <input type="datetime-local" id="r-datetime" />
+        <label>Prioridad</label>
+        <div class="priority-group">
+          <label class="priority-opt"><input type="radio" name="r-priority" value="low" checked /><span class="prio low">Baja</span></label>
+          <label class="priority-opt"><input type="radio" name="r-priority" value="med" /><span class="prio med">Media</span></label>
+          <label class="priority-opt"><input type="radio" name="r-priority" value="high" /><span class="prio high">Alta</span></label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close="modal-reminder">Cancelar</button>
+        <button class="btn-primary" id="save-reminder">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Nueva Tarea ── -->
+  <div class="modal-overlay" id="modal-task">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Nueva Tarea</h3>
+        <button class="close-btn" data-close="modal-task">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>Nombre *</label>
+        <input type="text" id="t-title" placeholder="Ej. Revisar informe" maxlength="60" />
+        <label>Descripción</label>
+        <textarea id="t-desc" placeholder="Detalles de la tarea..." rows="3"></textarea>
+        <label>Estado inicial</label>
+        <select id="t-status">
+          <option value="pending">Pendiente</option>
+          <option value="progress">En progreso</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close="modal-task">Cancelar</button>
+        <button class="btn-primary" id="save-task">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Nuevo Evento ── -->
+  <div class="modal-overlay" id="modal-event">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Nuevo Evento</h3>
+        <button class="close-btn" data-close="modal-event">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>Título *</label>
+        <input type="text" id="e-title" placeholder="Ej. Reunión de equipo" maxlength="60" />
+        <label>Fecha</label>
+        <input type="date" id="e-date" />
+        <label>Hora inicio</label>
+        <input type="time" id="e-start" />
+        <label>Hora fin</label>
+        <input type="time" id="e-end" />
+        <label>Color</label>
+        <div class="color-group">
+          <button class="color-dot active" data-color="#3b82f6" style="background:#3b82f6"></button>
+          <button class="color-dot" data-color="#10b981" style="background:#10b981"></button>
+          <button class="color-dot" data-color="#f59e0b" style="background:#f59e0b"></button>
+          <button class="color-dot" data-color="#ef4444" style="background:#ef4444"></button>
+          <button class="color-dot" data-color="#8b5cf6" style="background:#8b5cf6"></button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close="modal-event">Cancelar</button>
+        <button class="btn-primary" id="save-event">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

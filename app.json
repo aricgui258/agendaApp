@@ -1,0 +1,10 @@
+{
+  "android": {
+    "package": "com.anonymous.appantigravity"
+  },
+  "extra": {
+    "eas": {
+      "projectId": "221289d7-7055-4932-b0ae-b4c4eba9c01f"
+    }
+  }
+}
