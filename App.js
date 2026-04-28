@@ -5,6 +5,7 @@ import {
   Dimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width } = Dimensions.get('window');
 
@@ -36,8 +37,10 @@ export default function App() {
 
   const [modalVisible, setModalVisible] = useState(null);
   const [newR, setNewR] = useState({ title: '', desc: '', priority: 'low' });
-  const [newT, setNewT] = useState({ title: '', desc: '', status: 'pending' });
-  const [newE, setNewE] = useState({ title: '', start: '', end: '', color: COLORS.blue500 });
+  const [newT, setNewT] = useState({ title: '', desc: '', status: 'pending', startTime: new Date(), endTime: new Date(new Date().setHours(new Date().getHours() + 1)) });
+  const [newE, setNewE] = useState({ title: '', startTime: new Date(), endTime: new Date(new Date().setHours(new Date().getHours() + 1)), color: COLORS.blue500 });
+  
+  const [showTimePicker, setShowTimePicker] = useState(null); // 'start' | 'end' | null
 
   useEffect(() => { loadData(); }, []);
 
@@ -80,10 +83,12 @@ export default function App() {
   // ─── LÓGICA DE TAREAS ───
   const addTask = () => {
     if (!newT.title.trim()) return;
-    const updated = [{ id: Date.now().toString(), ...newT }, ...tasks];
+    const start = newT.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const end = newT.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const updated = [{ id: Date.now().toString(), ...newT, startTime: start, endTime: end }, ...tasks];
     setTasks(updated); saveData('tasks', updated);
     setModalVisible(null);
-    setNewT({ title: '', desc: '', status: 'pending' });
+    setNewT({ title: '', desc: '', status: 'pending', startTime: new Date(), endTime: new Date(new Date().setHours(new Date().getHours() + 1)) });
   };
 
   const moveTask = (id, newStatus) => {
@@ -104,10 +109,12 @@ export default function App() {
 
   const addEvent = () => {
     if (!newE.title.trim()) return;
-    const updated = [{ id: Date.now().toString(), ...newE, date: selectedDate }, ...events];
+    const start = newE.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const end = newE.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const updated = [{ id: Date.now().toString(), ...newE, start, end, date: selectedDate }, ...events];
     setEvents(updated); saveData('events', updated);
     setModalVisible(null);
-    setNewE({ title: '', start: '', end: '', color: COLORS.blue500 });
+    setNewE({ title: '', startTime: new Date(), endTime: new Date(new Date().setHours(new Date().getHours() + 1)), color: COLORS.blue500 });
   };
 
   const deleteEvent = (id) => {
@@ -167,7 +174,7 @@ export default function App() {
 
   const RemindersView = () => (
     <View style={{ flex: 1 }}>
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 }}>
         <Text style={styles.sectionTitle}>Recordatorios ({reminders.filter(r => !r.done).length})</Text>
         {reminders.map(r => (
           <View key={r.id} style={[styles.card, r.done && { opacity: 0.5 }, { borderLeftColor: r.priority === 'high' ? COLORS.danger : r.priority === 'med' ? COLORS.warning : COLORS.success }]}>
@@ -178,7 +185,7 @@ export default function App() {
               <Text style={[styles.cardTitle, r.done && { textDecorationLine: 'line-through' }]}>{r.title}</Text>
               {r.desc ? <Text style={styles.cardDesc}>{r.desc}</Text> : null}
             </View>
-            <TouchableOpacity onPress={() => deleteReminder(r.id)}><Text>🗑</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteReminder(r.id)}><Text style={styles.deleteIcon}>🗑</Text></TouchableOpacity>
           </View>
         ))}
       </ScrollView>
@@ -210,12 +217,15 @@ export default function App() {
               {tasks.filter(t => t.status === col.id).map(t => (
                 <View key={t.id} style={styles.taskCard}>
                   <View style={{flex:1}}>
-                    <Text style={styles.taskTitle}>{t.title}</Text>
+                    <View style={{flexDirection:'row', alignItems:'center', gap: 5}}>
+                      <Text style={styles.taskTitle}>{t.title}</Text>
+                      {t.startTime ? <Text style={styles.taskTime}>({t.startTime} - {t.endTime})</Text> : null}
+                    </View>
                     {t.desc ? <Text style={styles.taskDesc}>{t.desc}</Text> : null}
                   </View>
                   <View style={styles.taskActions}>
                     {col.id !== 'done' && <TouchableOpacity onPress={() => moveTask(t.id, col.id === 'pending' ? 'progress' : 'done')}><Text>▶</Text></TouchableOpacity>}
-                    <TouchableOpacity onPress={() => deleteTask(t.id)}><Text>🗑</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteTask(t.id)}><Text style={styles.deleteIcon}>🗑</Text></TouchableOpacity>
                   </View>
                 </View>
               ))}
@@ -256,7 +266,7 @@ export default function App() {
                 <Text style={styles.eventTitle}>{e.title}</Text>
                 <Text style={styles.eventTime}>{e.start} - {e.end}</Text>
               </View>
-              <TouchableOpacity onPress={() => deleteEvent(e.id)}><Text>🗑</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteEvent(e.id)}><Text style={styles.deleteIcon}>🗑</Text></TouchableOpacity>
             </View>
           ))}
         </ScrollView>
@@ -298,6 +308,36 @@ export default function App() {
           <Text style={styles.modalTitle}>Nueva Tarea</Text>
           <TextInput style={styles.input} placeholder="Título de la tarea" value={newT.title} onChangeText={t => setNewT({...newT, title:t})} />
           <TextInput style={[styles.input, {height:80}]} placeholder="Descripción" multiline value={newT.desc} onChangeText={t => setNewT({...newT, desc:t})} />
+          
+          <Text style={styles.label}>Horario (Inicio - Fin)</Text>
+          <View style={{flexDirection:'row', gap:10, marginBottom: 15}}>
+            <TouchableOpacity style={[styles.input, {flex:1, marginBottom: 0}]} onPress={() => setShowTimePicker('start')}>
+              <Text style={{fontSize: 12, color: COLORS.textSub, marginBottom: 4}}>Inicio</Text>
+              <Text>{newT.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.input, {flex:1, marginBottom: 0}]} onPress={() => setShowTimePicker('end')}>
+              <Text style={{fontSize: 12, color: COLORS.textSub, marginBottom: 4}}>Fin</Text>
+              <Text>{newT.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {showTimePicker && (
+            <DateTimePicker
+              value={showTimePicker === 'start' ? newT.startTime : newT.endTime}
+              mode="time"
+              is24Hour={true}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(event, selectedDate) => {
+                const mode = showTimePicker;
+                setShowTimePicker(null);
+                if (selectedDate) {
+                  if (mode === 'start') setNewT({ ...newT, startTime: selectedDate });
+                  else setNewT({ ...newT, endTime: selectedDate });
+                }
+              }}
+            />
+          )}
+
           <View style={styles.modalButtons}>
             <TouchableOpacity style={styles.btnSec} onPress={() => setModalVisible(null)}><Text>Cerrar</Text></TouchableOpacity>
             <TouchableOpacity style={styles.btnPri} onPress={addTask}><Text style={{color:'#fff', fontWeight:'bold'}}>Crear Tarea</Text></TouchableOpacity>
@@ -310,10 +350,34 @@ export default function App() {
         <View style={styles.modalOverlay}><View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Nuevo Evento</Text>
           <TextInput style={styles.input} placeholder="Título del evento" value={newE.title} onChangeText={t => setNewE({...newE, title:t})} />
-          <View style={{flexDirection:'row', gap:10}}>
-            <TextInput style={[styles.input, {flex:1}]} placeholder="Inicio" value={newE.start} onChangeText={t => setNewE({...newE, start:t})} />
-            <TextInput style={[styles.input, {flex:1}]} placeholder="Fin" value={newE.end} onChangeText={t => setNewE({...newE, end:t})} />
+          <Text style={styles.label}>Horario (Inicio - Fin)</Text>
+          <View style={{flexDirection:'row', gap:10, marginBottom: 15}}>
+            <TouchableOpacity style={[styles.input, {flex:1, marginBottom: 0}]} onPress={() => setShowTimePicker('start')}>
+              <Text style={{fontSize: 10, color: COLORS.textSub, marginBottom: 4}}>Inicio</Text>
+              <Text>{newE.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.input, {flex:1, marginBottom: 0}]} onPress={() => setShowTimePicker('end')}>
+              <Text style={{fontSize: 10, color: COLORS.textSub, marginBottom: 4}}>Fin</Text>
+              <Text>{newE.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
           </View>
+
+          {showTimePicker && (
+            <DateTimePicker
+              value={showTimePicker === 'start' ? newE.startTime : newE.endTime}
+              mode="time"
+              is24Hour={true}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(event, selectedDate) => {
+                const mode = showTimePicker;
+                setShowTimePicker(null);
+                if (selectedDate) {
+                  if (mode === 'start') setNewE({ ...newE, startTime: selectedDate });
+                  else setNewE({ ...newE, endTime: selectedDate });
+                }
+              }}
+            />
+          )}
           <View style={styles.modalButtons}>
             <TouchableOpacity style={styles.btnSec} onPress={() => setModalVisible(null)}><Text>Cerrar</Text></TouchableOpacity>
             <TouchableOpacity style={styles.btnPri} onPress={addEvent}><Text style={{color:'#fff', fontWeight:'bold'}}>Guardar Evento</Text></TouchableOpacity>
@@ -326,13 +390,13 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.blue50 },
-  header: { backgroundColor: COLORS.blue600, paddingTop: 40, paddingHorizontal: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 10 },
+  header: { backgroundColor: COLORS.blue600, paddingTop: 40, paddingBottom: 25, paddingHorizontal: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 10 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerDate: { color: COLORS.blue100, fontSize: 12, textTransform: 'capitalize' },
   avatar: { width: 35, height: 35, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' },
   avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
   headerTitle: { color: '#fff', fontSize: 28, fontWeight: 'bold', marginVertical: 15 },
-  tabNav: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 15, padding: 5, marginBottom: -10 },
+  tabNav: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 15, padding: 5, marginBottom: 0 },
   tabBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
   tabBtnActive: { backgroundColor: '#fff' },
   tabBtnText: { fontSize: 18 },
@@ -352,6 +416,7 @@ const styles = StyleSheet.create({
   kanbanHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 10 },
   taskCard: { padding: 12, borderBottomWidth: 1, borderBottomColor: COLORS.blue50, flexDirection: 'row', alignItems: 'center' },
   taskTitle: { fontSize: 14, fontWeight: '600' },
+  taskTime: { fontSize: 12, color: COLORS.blue500, fontWeight: 'bold' },
   taskDesc: { fontSize: 12, color: COLORS.textSub },
   taskActions: { flexDirection: 'row', gap: 10 },
   fullCal: { backgroundColor: '#fff', borderRadius: 20, padding: 15, marginBottom: 20, elevation: 3 },
@@ -361,7 +426,7 @@ const styles = StyleSheet.create({
   calWeekDays: { flexDirection: 'row', marginBottom: 10 },
   calWeekText: { flex: 1, textAlign: 'center', fontSize: 12, color: COLORS.textSub, fontWeight: 'bold' },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calDay: { width: (width - 70) / 7, height: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 5, borderRadius: 10 },
+  calDay: { width: '14.28%', height: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 5, borderRadius: 10 },
   calDayActive: { backgroundColor: COLORS.blue600 },
   calDayToday: { backgroundColor: COLORS.blue50, borderWidth: 1, borderColor: COLORS.blue200 },
   calDayText: { fontSize: 14, fontWeight: '500' },
@@ -386,4 +451,6 @@ const styles = StyleSheet.create({
   modalButtons: { flexDirection: 'row', gap: 10 },
   btnPri: { flex: 1, backgroundColor: COLORS.blue600, padding: 15, borderRadius: 10, alignItems: 'center' },
   btnSec: { flex: 1, backgroundColor: COLORS.blue50, padding: 15, borderRadius: 10, alignItems: 'center' },
+  deleteBtn: { padding: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  deleteIcon: { fontSize: 20, color: COLORS.textSub },
 });
