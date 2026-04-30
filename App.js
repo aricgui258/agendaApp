@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, Text, View, ScrollView, TouchableOpacity, 
   Modal, TextInput, SafeAreaView, StatusBar, Platform,
-  Dimensions
+  Dimensions, KeyboardAvoidingView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -284,9 +284,10 @@ export default function App() {
 
       {/* MODAL RECORDATORIO */}
       <Modal visible={modalVisible === 'reminder'} animationType="slide" transparent>
-        <View style={styles.modalOverlay}><View style={styles.modalContent}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Nuevo Recordatorio</Text>
-          <TextInput style={styles.input} placeholder="¿Qué quieres recordar?" value={newR.title} onChangeText={t => setNewR({...newR, title:t})} />
+          <TextInput style={styles.input} placeholder="¿Qué quieres recordar?" placeholderTextColor={COLORS.textSub} value={newR.title} onChangeText={t => setNewR({...newR, title:t})} />
           <Text style={styles.label}>Prioridad</Text>
           <View style={styles.prioGroup}>
             {['low','med','high'].map(p => (
@@ -299,15 +300,17 @@ export default function App() {
             <TouchableOpacity style={styles.btnSec} onPress={() => setModalVisible(null)}><Text>Cerrar</Text></TouchableOpacity>
             <TouchableOpacity style={styles.btnPri} onPress={addReminder}><Text style={{color:'#fff', fontWeight:'bold'}}>Guardar</Text></TouchableOpacity>
           </View>
-        </View></View>
+        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* MODAL TAREA */}
       <Modal visible={modalVisible === 'task'} animationType="slide" transparent>
-        <View style={styles.modalOverlay}><View style={styles.modalContent}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Nueva Tarea</Text>
-          <TextInput style={styles.input} placeholder="Título de la tarea" value={newT.title} onChangeText={t => setNewT({...newT, title:t})} />
-          <TextInput style={[styles.input, {height:80}]} placeholder="Descripción" multiline value={newT.desc} onChangeText={t => setNewT({...newT, desc:t})} />
+          <TextInput style={styles.input} placeholder="Título de la tarea" placeholderTextColor={COLORS.textSub} value={newT.title} onChangeText={t => setNewT({...newT, title:t})} />
+          <TextInput style={[styles.input, {height:80}]} placeholder="Descripción" placeholderTextColor={COLORS.textSub} multiline value={newT.desc} onChangeText={t => setNewT({...newT, desc:t})} />
           
           <Text style={styles.label}>Horario (Inicio - Fin)</Text>
           <View style={{flexDirection:'row', gap:10, marginBottom: 15}}>
@@ -342,14 +345,16 @@ export default function App() {
             <TouchableOpacity style={styles.btnSec} onPress={() => setModalVisible(null)}><Text>Cerrar</Text></TouchableOpacity>
             <TouchableOpacity style={styles.btnPri} onPress={addTask}><Text style={{color:'#fff', fontWeight:'bold'}}>Crear Tarea</Text></TouchableOpacity>
           </View>
-        </View></View>
+        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* MODAL EVENTO */}
       <Modal visible={modalVisible === 'event'} animationType="slide" transparent>
-        <View style={styles.modalOverlay}><View style={styles.modalContent}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Nuevo Evento</Text>
-          <TextInput style={styles.input} placeholder="Título del evento" value={newE.title} onChangeText={t => setNewE({...newE, title:t})} />
+          <TextInput style={styles.input} placeholder="Título del evento" placeholderTextColor={COLORS.textSub} value={newE.title} onChangeText={t => setNewE({...newE, title:t})} />
           <Text style={styles.label}>Horario (Inicio - Fin)</Text>
           <View style={{flexDirection:'row', gap:10, marginBottom: 15}}>
             <TouchableOpacity style={[styles.input, {flex:1, marginBottom: 0}]} onPress={() => setShowTimePicker('start')}>
@@ -382,7 +387,8 @@ export default function App() {
             <TouchableOpacity style={styles.btnSec} onPress={() => setModalVisible(null)}><Text>Cerrar</Text></TouchableOpacity>
             <TouchableOpacity style={styles.btnPri} onPress={addEvent}><Text style={{color:'#fff', fontWeight:'bold'}}>Guardar Evento</Text></TouchableOpacity>
           </View>
-        </View></View>
+        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -445,7 +451,7 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#fff', padding: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
   label: { fontSize: 12, fontWeight: 'bold', color: COLORS.textSub, marginBottom: 10 },
-  input: { backgroundColor: COLORS.blue50, padding: 15, borderRadius: 10, marginBottom: 15, borderWidth: 1, borderColor: COLORS.blue100 },
+  input: { backgroundColor: COLORS.blue50, padding: 15, borderRadius: 10, marginBottom: 15, borderWidth: 1, borderColor: COLORS.blue100, color: COLORS.textMain },
   prioGroup: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   prioBtn: { flex: 1, padding: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.blue100 },
   modalButtons: { flexDirection: 'row', gap: 10 },
